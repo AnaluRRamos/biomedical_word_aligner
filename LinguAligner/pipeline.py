@@ -1,21 +1,19 @@
-"""LinguAligner is a Python library for aligning annotations in parallel corpora. It is designed to be used in the context of parallel corpora annotation alignment, where the goal is to align annotations in the source language with annotations in the target language. """
-__version__ = "0.35"
+# LinguAligner/pipeline.py
 
-
-from . import aligners
 import spacy
-from . import translation
 from transformers import BertTokenizer, BertModel, logging
 import logging
-logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
-from .pipeline import AlignmentPipeline
+# This import is crucial for the AlignmentPipeline to access the aligner functions
+from . import aligners
 
-config_default = config= {
-    "pipeline": [ "lemma", "M_Trans", "word_aligner","gestalt","leveinstein"], # can be changed according to the desired pipeline
-    "spacy_model": "pt_core_news_lg", # change according to the language
-    "WAligner_model": "bert-base-multilingual-uncased", # needed for word_aligner
+logging.getLogger("transformers.modeling_utils").setLevel(logging.ERROR)
+
+config_default = {
+    "pipeline": [ "lemma", "M_Trans", "word_aligner","gestalt","leveinstein"],
+    "spacy_model": "pt_core_news_lg",
+    "WAligner_model": "bert-base-multilingual-uncased",
 }
- 
+
 class AlignmentPipeline:
     def __init__(self, config=config_default):
         self.config = config
@@ -30,10 +28,7 @@ class AlignmentPipeline:
 
     def align_annotation(self, src_sent, src_ann, tgt_sent, trans_ann, src_ann_start=0, lookupTable=None):
         pipeline = self.config["pipeline"]
-        
-        #if "M_Trans" in pipeline and lookupTable == None:              
-            #pipeline.remove("M_Trans")
-            #print("Lookup table not provided for M_Trans method. (skipped)")
+
         nlp = self.nlp
         res = aligners.regex_string_match(tgt_sent,trans_ann) 
         span = (-1,-1)
@@ -41,10 +36,9 @@ class AlignmentPipeline:
             i = 0
             while i < len(pipeline) and not res:
                 method = pipeline[i]
-                #print(method)
                 if method == 'lemma':
                     res = aligners.lemma_match(tgt_sent,trans_ann,nlp)
-                elif method == 'M_Trans': # Mtrans is combined with lemma method since we also calculate the lemma of the translations
+                elif method == 'M_Trans':
                     if lookupTable != None: 
                         res = aligners.resource_match(tgt_sent,src_ann,nlp,lookupTable)
                 elif method == 'word_aligner':
@@ -56,13 +50,8 @@ class AlignmentPipeline:
                 else:
                     print(f"Invalid alignment method: {method}")
                 i += 1
-        
+
         if res:
             span = aligners.closest_occurrence(tgt_sent,res,src_ann_start)
-            
+
         return res, span
-    
-
-
-#res = align_annotation("The ship land on the shore","O barco desembarcou na costa","land","terra",nlp) # Expected output: "teste
-#print(res)
